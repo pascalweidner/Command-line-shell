@@ -60,7 +60,7 @@ void cdShell(char *str)
 
 char *formatName(char *token)
 {
-    char *filename = malloc((strlen(path) + strlen(token) + 2) * sizeof(char));
+    char *filename = malloc((strlen(path) + strlen(token) + 1) * sizeof(char));
     strcpy(filename, path);
     strcat(filename, "\\");
     strcat(filename, token);
@@ -83,6 +83,9 @@ void renameFile(char *str)
     {
         printf("mv: unable to rename file.");
     }
+
+    free(old);
+    free(new);
 }
 
 void makeDir(char *str)
@@ -97,6 +100,8 @@ void makeDir(char *str)
     {
         printf("mkdir: unable to create dir.");
     }
+
+    free(filename);
 }
 
 void removeDir(char *str)
@@ -111,6 +116,33 @@ void removeDir(char *str)
     {
         printf("rmdir: unable to remove dir.");
     }
+
+    free(filename);
+}
+
+void printFile(char *str)
+{
+    strcpy(str, str + 4);
+    char *token = strtok(str, "\n ");
+    char *filename = formatName(token);
+
+    FILE *fptr;
+    fptr = fopen(filename, "r");
+
+    if (fptr == NULL)
+    {
+        printf("cat: not able to open file %s.", token);
+        return;
+    }
+
+    char buffer[100];
+    while (fgets(buffer, 100, fptr))
+    {
+        printf("%s", buffer);
+    }
+
+    fclose(fptr);
+    free(filename);
 }
 
 void interpret(char *str)
@@ -147,6 +179,10 @@ void interpret(char *str)
     else if (strcmp(token, "rmdir") == 0)
     {
         removeDir(str);
+    }
+    else if (strcmp(token, "cat") == 0)
+    {
+        printFile(str);
     }
     else
     {
