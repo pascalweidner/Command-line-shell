@@ -8,8 +8,11 @@
 
 char path[_MAX_PATH];
 
+HANDLE handle;
+
 void echoCmd(char *str)
 {
+    strtok(str, " \n");
     if (strtok(NULL, " \n") == NULL)
     {
         printf("Missing echo text.");
@@ -145,11 +148,39 @@ void printFile(char *str)
     free(filename);
 }
 
+void runNewThread(char *str, void (*func)(char *))
+{
+    DWORD threadID;
+    handle = CreateThread(NULL, 0, (void *)func, str, 0, &threadID);
+    if (handle == NULL)
+    {
+        printf("Create Thread Failed. Error no: %d\n", GetLastError);
+    }
+}
+
+void runCommand(char *str, void (*func)(char *))
+{
+    if (func != NULL)
+    {
+        if (strrchr(str, '&') - str == strlen(str) - 2)
+        {
+            str[strlen(str) - 2] = '\0';
+            runNewThread(str, func);
+        }
+        else
+        {
+            (*func)(str);
+        }
+    }
+}
+
 void interpret(char *str)
 {
 
     char com[100];
     strcpy(com, str);
+
+    void (*func)(char *) = NULL;
 
     char *token = strtok(com, " \n");
     if (strcmp(token, "exit") == 0)
@@ -158,11 +189,11 @@ void interpret(char *str)
     }
     if (strcmp(token, "echo") == 0)
     {
-        echoCmd(str);
+        func = &echoCmd;
     }
     else if (strcmp(token, "cd") == 0)
     {
-        cdShell(str);
+        func = &cdShell;
     }
     else if (strcmp(token, "pwd") == 0)
     {
@@ -170,24 +201,26 @@ void interpret(char *str)
     }
     else if (strcmp(token, "mv") == 0)
     {
-        renameFile(str);
+        func = &renameFile;
     }
     else if (strcmp(token, "mkdir") == 0)
     {
-        makeDir(str);
+        func = &makeDir;
     }
     else if (strcmp(token, "rmdir") == 0)
     {
-        removeDir(str);
+        func = &removeDir;
     }
     else if (strcmp(token, "cat") == 0)
     {
-        printFile(str);
+        func = &printFile;
     }
     else
     {
         printf("The command \"%s\" is either misspelled or could not be found.");
     }
+
+    runCommand(str, func);
 }
 
 int main()
@@ -197,12 +230,16 @@ int main()
     while (1)
     {
         char com[100];
-        printf("KS %s> ", path);
+        printf("KS %s>", path);
         fgets(com, sizeof(com), stdin);
 
         interpret(com);
 
         printf("\n");
     }
+
+    printf("TestEnde");
+
+    WaitForSingleObject(handle, INFINITE);
     return 0;
 }
