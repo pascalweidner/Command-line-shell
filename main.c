@@ -4,20 +4,25 @@
 #include <sys/stat.h>
 #include <limits.h>
 #include <direct.h>
-#include <windows.h>
+#include "list_h.h"
 
 char path[_MAX_PATH];
 
-HANDLE handle;
+h_list *handle_list;
+int threadCount;
+DWORD threadID;
 
 void echoCmd(char *str)
 {
-    strtok(str, " \n");
+    char *cache = (char *)malloc((strlen(str) + 1) * sizeof(char));
+    strcpy(cache, str);
+    strtok(cache, " \n");
     if (strtok(NULL, " \n") == NULL)
     {
-        printf("Missing echo text.");
+        printf("Missing echo text. \n");
     }
-    printf("%s", str + 5);
+    printf("%s \n", str + 5);
+    free(cache);
 }
 
 void cdShell(char *str)
@@ -53,7 +58,7 @@ void cdShell(char *str)
             }
             else
             {
-                printf("Directory does not exist.");
+                printf("Directory does not exist. \n");
                 break;
             }
         }
@@ -84,7 +89,7 @@ void renameFile(char *str)
 
     if (ret != 0)
     {
-        printf("mv: unable to rename file.");
+        printf("mv: unable to rename file. \n");
     }
 
     free(old);
@@ -101,7 +106,7 @@ void makeDir(char *str)
 
     if (ret != 0)
     {
-        printf("mkdir: unable to create dir.");
+        printf("mkdir: unable to create dir. \n");
     }
 
     free(filename);
@@ -117,7 +122,7 @@ void removeDir(char *str)
 
     if (ret != 0)
     {
-        printf("rmdir: unable to remove dir.");
+        printf("rmdir: unable to remove dir. \n");
     }
 
     free(filename);
@@ -134,7 +139,7 @@ void printFile(char *str)
 
     if (fptr == NULL)
     {
-        printf("cat: not able to open file %s.", token);
+        printf("cat: not able to open file %s. \n", token);
         return;
     }
 
@@ -150,12 +155,16 @@ void printFile(char *str)
 
 void runNewThread(char *str, void (*func)(char *))
 {
-    DWORD threadID;
-    handle = CreateThread(NULL, 0, (void *)func, str, 0, &threadID);
-    if (handle == NULL)
+    HANDLE *handle = (HANDLE *)malloc(sizeof(HANDLE));
+    *handle = CreateThread(NULL, 0, (void *)func, str, 0, &threadID);
+    if (*handle == NULL)
     {
         printf("Create Thread Failed. Error no: %d\n", GetLastError);
+        return;
     }
+    threadCount++;
+    add_h(handle_list, handle, threadCount);
+    printf("[%d] \n", threadCount);
 }
 
 void runCommand(char *str, void (*func)(char *))
@@ -217,7 +226,7 @@ void interpret(char *str)
     }
     else
     {
-        printf("The command \"%s\" is either misspelled or could not be found.");
+        printf("The command \"%s\" is either misspelled or could not be found. \n");
     }
 
     runCommand(str, func);
@@ -227,6 +236,9 @@ int main()
 {
     strcpy(path, getcwd(NULL, 0));
 
+    handle_list = createHList();
+    threadCount = -1;
+
     while (1)
     {
         char com[100];
@@ -235,11 +247,26 @@ int main()
 
         interpret(com);
 
-        printf("\n");
+        int cache = 0;
+        for (int i = 0; i < threadCount; i++)
+        {
+            DWORD result = WaitForSingleObject(*get_h(handle_list, i), 0);
+            printf("%d \n", result);
+            if (result == WAIT_OBJECT_0)
+            {
+                CloseHandle(*get_h(handle_list, i));
+                int ind = delete_h(handle_list, i);
+                printf("[%d] Done \n", ind);
+                cache++;
+            }
+        }
+        threadCount -= cache;
     }
 
-    printf("TestEnde");
-
-    WaitForSingleObject(handle, INFINITE);
+    for (int i = 0; i < threadCount; i++)
+    {
+        DWORD result = WaitForSingleObject(*get_h(handle_list, i), INFINITE);
+        CloseHandle(*get_h(handle_list, i));
+    }
     return 0;
 }
