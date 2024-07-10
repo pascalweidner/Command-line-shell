@@ -57,6 +57,7 @@ void add_h(h_list *lst, HANDLE *elem, int ind)
     {
         lst->head = new;
         lst->last = lst->head;
+        lst->size++;
         return;
     }
     lst->last->next = new;
@@ -74,13 +75,28 @@ int delete_h(h_list *lst, int pos)
         exit(-1);
     }
 
+    if (pos == 0)
+    {
+        node *temp = lst->head;
+        lst->head = temp->next;
+        cache = temp->ind;
+        free(temp->elem);
+        free(temp);
+
+        if (lst->head == NULL)
+        {
+            lst->last = NULL;
+        }
+        return cache;
+    }
+
     node *curr = lst->head;
-    for (int i = 0; i < pos - 1; i++)
+    for (int i = 0; i < pos; i++)
     {
         curr = curr->next;
     }
 
-    node *temp = curr->next;
+    node *temp = curr;
 
     curr->next = temp->next;
     cache = temp->ind;

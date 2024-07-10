@@ -10,7 +10,7 @@ char path[_MAX_PATH];
 
 h_list *handle_list;
 int threadCount;
-DWORD threadID;
+int highestThread;
 
 void echoCmd(char *str)
 {
@@ -156,15 +156,17 @@ void printFile(char *str)
 void runNewThread(char *str, void (*func)(char *))
 {
     HANDLE *handle = (HANDLE *)malloc(sizeof(HANDLE));
+    DWORD threadID;
     *handle = CreateThread(NULL, 0, (void *)func, str, 0, &threadID);
     if (*handle == NULL)
     {
         printf("Create Thread Failed. Error no: %d\n", GetLastError);
         return;
     }
+    printf("[%d] \n", highestThread);
+    add_h(handle_list, handle, highestThread);
     threadCount++;
-    add_h(handle_list, handle, threadCount);
-    printf("[%d] \n", threadCount);
+    highestThread++;
 }
 
 void runCommand(char *str, void (*func)(char *))
@@ -237,7 +239,8 @@ int main()
     strcpy(path, getcwd(NULL, 0));
 
     handle_list = createHList();
-    threadCount = -1;
+    threadCount = 0;
+    highestThread = 0;
 
     while (1)
     {
@@ -248,19 +251,23 @@ int main()
         interpret(com);
 
         int cache = 0;
+
         for (int i = 0; i < threadCount; i++)
         {
             DWORD result = WaitForSingleObject(*get_h(handle_list, i), 0);
-            printf("%d \n", result);
             if (result == WAIT_OBJECT_0)
             {
                 CloseHandle(*get_h(handle_list, i));
                 int ind = delete_h(handle_list, i);
+                threadCount--;
+                i--;
                 printf("[%d] Done \n", ind);
-                cache++;
             }
         }
-        threadCount -= cache;
+        if (threadCount == 0)
+        {
+            highestThread = 0;
+        }
     }
 
     for (int i = 0; i < threadCount; i++)
